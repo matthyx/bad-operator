@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
+	"log"
 	"path/filepath"
+	"sync"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -50,20 +51,25 @@ func main() {
 
 	// list all resources, constantly
 	client := dynamic.NewForConfigOrDie(config)
-	for {
-		for _, res := range ks {
-			list, err := client.Resource(res).Namespace("").List(context.Background(), v1.ListOptions{})
-			if err != nil {
-				panic(err)
-			}
-			for _, item := range list.Items {
-				// get full item (list only returns metadata)
-				fullItem, err := client.Resource(res).Namespace(item.GetNamespace()).Get(context.Background(), item.GetName(), v1.GetOptions{})
+	var wg sync.WaitGroup
+	for _, res := range ks {
+		wg.Add(1)
+		go func(res schema.GroupVersionResource) {
+			for {
+				list, err := client.Resource(res).Namespace("").List(context.Background(), v1.ListOptions{})
 				if err != nil {
 					panic(err)
 				}
-				fmt.Println(res.Resource, fullItem.GetName())
+				for _, item := range list.Items {
+					// get full item (list only returns metadata)
+					fullItem, err := client.Resource(res).Namespace(item.GetNamespace()).Get(context.Background(), item.GetName(), v1.GetOptions{})
+					if err != nil {
+						panic(err)
+					}
+					log.Println(res.Resource, fullItem.GetName())
+				}
 			}
-		}
+		}(res)
 	}
+	wg.Wait()
 }
