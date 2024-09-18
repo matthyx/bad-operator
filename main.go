@@ -28,6 +28,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	// disable rate limiting
+	config.QPS = -1
+	config.RateLimiter = nil
 
 	// get all resources from the spdx.softwarecomposition.kubescape.io/v1beta1 group
 	disco := discovery.NewDiscoveryClientForConfigOrDie(config)
