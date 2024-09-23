@@ -6,7 +6,9 @@ import (
 	"log"
 	"path/filepath"
 	"sync"
+	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -61,12 +63,20 @@ func main() {
 			for {
 				list, err := client.Resource(res).Namespace("").List(context.Background(), v1.ListOptions{})
 				if err != nil {
+					if errors.IsTooManyRequests(err) {
+						time.Sleep(1 * time.Second)
+						continue
+					}
 					panic(err)
 				}
 				for _, item := range list.Items {
 					// get full item (list only returns metadata)
 					fullItem, err := client.Resource(res).Namespace(item.GetNamespace()).Get(context.Background(), item.GetName(), v1.GetOptions{})
 					if err != nil {
+						if errors.IsTooManyRequests(err) {
+							time.Sleep(1 * time.Second)
+							continue
+						}
 						panic(err)
 					}
 					log.Println(res.Resource, fullItem.GetName())
